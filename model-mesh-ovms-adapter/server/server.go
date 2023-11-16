@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -120,7 +121,8 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 		return nil, status.Errorf(status.Code(err), "Failed to load Model due to adapter error: %s", err)
 	}
 
-	adaptedModelPath, err := util.SecureJoin(s.AdapterConfig.RootModelDir, req.ModelId)
+	adaptedModelPath := filepath.Join(s.AdapterConfig.RootModelDir, req.ModelId)
+	log.Info("Sum paths", "RootModelDir", s.AdapterConfig.RootModelDir, "ModelId", req.ModelId, "adapterModelPath", adaptedModelPath)
 	if err != nil {
 		log.Error(err, "Unable to securely join", "rootModelDir", rootModelDir, "modelID", req.ModelId)
 		return nil, err
