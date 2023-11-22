@@ -157,18 +157,14 @@ func (s *OvmsAdapterServer) UnloadModel(ctx context.Context, req *mmesh.UnloadMo
 		}
 	}
 
-	ovmsModelIDDir, err := util.SecureJoin(s.AdapterConfig.RootModelDir, req.ModelId)
-	if err != nil {
-		s.Log.Error(err, "Unable to securely join", "rootModelDir", s.AdapterConfig.RootModelDir, "modelId", req.ModelId)
-		return nil, err
-	}
-	if err = os.RemoveAll(ovmsModelIDDir); err != nil {
+	ovmsModelIDDir := filepath.Join(s.AdapterConfig.RootModelDir, req.ModelId)
+	if err := os.RemoveAll(ovmsModelIDDir); err != nil {
 		return nil, status.Errorf(status.Code(err), "Error while deleting the %s dir: %v", ovmsModelIDDir, err)
 	}
 
 	if s.AdapterConfig.UseEmbeddedPuller {
 		// delete files from puller cache
-		err = s.Puller.CleanupModel(req.ModelId)
+		err := s.Puller.CleanupModel(req.ModelId)
 		if err != nil {
 			return nil, status.Errorf(status.Code(err), "Failed to delete model files from puller cache: %s", err)
 		}
