@@ -46,9 +46,11 @@ var ovmsModelsDir = filepath.Join(generatedTestdataDir, ovmsModelSubdir)
 
 const testOnnxModelId = "onnx-mnist"
 const testOpenvinoModelId = "openvino-ir"
+const testModelWithDefinedSizeId = "modelWithDefinedSize"
 
 var testOnnxModelPath = filepath.Join(testdataDir, "models", testOnnxModelId)
 var testOpenvinoModelPath = filepath.Join(testdataDir, "models", testOpenvinoModelId)
+var testModelWithDefinedSizePath = filepath.Join(testdataDir, "models", testModelWithDefinedSizeId)
 
 var testModelConfigFile = filepath.Join(generatedTestdataDir, "model_config_list.json")
 
@@ -123,6 +125,11 @@ func TestAdapter(t *testing.T) {
 				{State: "AVAILABLE"},
 			},
 		},
+		testModelWithDefinedSizeId: OvmsModelStatusResponse{
+			ModelVersionStatus: []OvmsModelVersionStatus{
+				{State: "AVAILABLE"},
+			},
+		},
 		testOnnxModelId: OvmsModelStatusResponse{
 			ModelVersionStatus: []OvmsModelVersionStatus{
 				{State: "AVAILABLE"},
@@ -156,7 +163,7 @@ func TestAdapter(t *testing.T) {
 
 	mmeshCtx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
+  t.Logf("XXXXXXXXXXXXX OpenvinoModelPath : %s", testOpenvinoModelPath)
 	openvinoLoadResp, err := c.LoadModel(mmeshCtx, &mmesh.LoadModelRequest{
 		ModelId:   testOpenvinoModelId,
 		ModelType: "rt:openvino",
@@ -170,14 +177,22 @@ func TestAdapter(t *testing.T) {
 	if openvinoLoadResp.SizeInBytes != defaultModelSizeInBytes {
 		t.Errorf("Expected SizeInBytes to be the default %d but actual value was %d", defaultModelSizeInBytes, openvinoLoadResp.SizeInBytes)
 	}
-
+// TODO refactor out
 	openvinoModelDir := filepath.Join(generatedTestdataDir, ovmsModelSubdir, testOpenvinoModelId)
-	openvinoModelFile := filepath.Join(openvinoModelDir, "1", "mapping-config.json")
+	openvinoModelFile := filepath.Join(openvinoModelDir, "1", "ir_model.bin")
 	if exists, existsErr := util.FileExists(openvinoModelFile); !exists {
 		if existsErr != nil {
 			t.Errorf("Expected model file %s to exists but got an error checking: %v", openvinoModelFile, existsErr)
 		} else {
 			t.Errorf("Expected model file %s to exist but it doesn't.", openvinoModelFile)
+		}
+	}
+	openvinoModelFileBin := filepath.Join(openvinoModelDir, "1", "ir_model.bin")
+	if exists, existsErr := util.FileExists(openvinoModelFileBin); !exists {
+		if existsErr != nil {
+			t.Errorf("Expected model file %s to exists but got an error checking: %v", openvinoModelFileBin, existsErr)
+		} else {
+			t.Errorf("Expected model file %s to exist but it doesn't.", openvinoModelFileBin)
 		}
 	}
 
@@ -186,6 +201,42 @@ func TestAdapter(t *testing.T) {
 	}
 
 	t.Logf("runtime status: Model loaded, %v", openvinoLoadResp)
+
+	// LoadModel with disk size and model type in model key
+	mmeshCtx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+///////// another model with defined model size
+  t.Logf("XXXXXXXXXXXXX OpenvinoModelPath : %s", testModelWithDefinedSizePath)
+	modelWithDefinedSizeResponse, err := c.LoadModel(mmeshCtx, &mmesh.LoadModelRequest{
+		ModelId:   testModelWithDefinedSizeId,
+		ModelType: "rt:openvino",
+		ModelPath: testModelWithDefinedSizePath,
+		ModelKey:  `{"model_type": "openvino"}`,
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to call MMesh: %v", err)
+	}
+    definedModelSizeFileContent := uint64(123000000)
+	if modelWithDefinedSizeResponse.SizeInBytes != definedModelSizeFileContent {
+		t.Errorf("Expected SizeInBytes to be the default %d but actual value was %d", defaultModelSizeInBytes, modelWithDefinedSizeResponse.SizeInBytes)
+	}
+// TODO refactor out
+	modelWithDefinedSizeDir := filepath.Join(generatedTestdataDir, ovmsModelSubdir, testModelWithDefinedSizeId)
+	modelWithDefinedSizeFile := filepath.Join(openvinoModelDir, "1", "ir_model.bin")
+	if exists, existsErr := util.FileExists(modelWithDefinedSizeFile); !exists {
+		if existsErr != nil {
+			t.Errorf("Expected model file %s to exists but got an error checking: %v", modelWithDefinedSizeFile, existsErr)
+		} else {
+			t.Errorf("Expected model file %s to exist but it doesn't.", modelWithDefinedSizeFile)
+		}
+	}
+
+	if err = checkEntryExistsInModelConfig(testModelWithDefinedSizeId, modelWithDefinedSizeDir); err != nil {
+		t.Errorf("checkEntryExistsInModelConfig: %v", err)
+	}
+
+	t.Logf("runtime status: Model loaded, %v", modelWithDefinedSizeResponse)
 
 	// LoadModel with disk size and model type in model key
 	mmeshCtx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
@@ -247,11 +298,14 @@ func TestAdapter(t *testing.T) {
 	}
 
 	t.Logf("runtime status: Model unloaded, %s", resp4)
+	t.Logf("Parampo")
 
 	// the previously loaded model should also still exist
 	if err := checkEntryExistsInModelConfig(testOpenvinoModelId, openvinoModelDir); err != nil {
+	t.Logf("Parampo")
 		t.Errorf("checkEntryExistsInModelConfig: %v", err)
 	}
+	t.Logf("Parampo")
 }
 
 func checkEntryExistsInModelConfig(modelid string, path string) error {

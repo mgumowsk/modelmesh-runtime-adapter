@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+"strconv"
+"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -94,6 +96,28 @@ func NewOvmsAdapterServer(runtimePort int, config *AdapterConfiguration, log log
 	return s
 }
 
+// TODO:
+// what if there is more than1 version?
+// what if this is mediapipe
+func (s *OvmsAdapterServer) getModelSizeFromFile(modelPath string, log logr.Logger) uint64 {
+	modelSizeFilePath := filepath.Join(modelPath,"1", modelLoadedSizeFileName)
+    modelSizeFileContent, err := os.ReadFile(modelSizeFilePath)
+    if err != nil {
+        log.Info("Could not read file", modelLoadedSizeFileName, modelSizeFilePath)
+        return 0
+    }
+    stringUntrimmed := string(modelSizeFileContent)
+    str := strings.Trim(stringUntrimmed," \n\r")
+    modelSizeB, err := strconv.ParseUint(str, 10, 0)
+    if err != nil {
+		log.Info("Could not read size from:", modelLoadedSizeFileName, modelSizeFilePath)
+	return 0
+    }
+log.Info("Read model loaded size", "model loaded size [B]", modelSizeB)
+
+	return modelSizeB
+}
+
 func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelRequest) (*mmesh.LoadModelResponse, error) {
 	log := s.Log.WithName("Load Model").WithValues("model_id", req.ModelId)
 	modelType := util.GetModelType(req, log)
@@ -133,13 +157,16 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 		log.Error(loadErr, "OVMS failed to load model")
 		return nil, status.Errorf(status.Code(loadErr), "Failed to load model due to error: %s", loadErr)
 	}
+  readModelLoadedSize := s.getModelSizeFromFile(adaptedModelPath, log);
 
-	size := util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
+ if readModelLoadedSize == 0 {
+	readModelLoadedSize = util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
+}
 
-	log.Info("OVMS model loaded", "sizeInBytes", size)
+	log.Info("OVMS model loaded", "sizeInBytes", readModelLoadedSize)
 
 	return &mmesh.LoadModelResponse{
-		SizeInBytes:    size,
+		SizeInBytes:    readModelLoadedSize,
 		MaxConcurrency: uint32(s.AdapterConfig.LimitModelConcurrency),
 	}, nil
 }
