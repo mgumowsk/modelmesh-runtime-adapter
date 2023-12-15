@@ -18,5 +18,6 @@ const (
 	kServeV2GrpcServiceName string = "inference.GRPCInferenceService"
 	ovmsModelSubdir         string = "_ovms_models"
 	onnxModelFilename       string = "model.onnx"
-  modelLoadedSizeFileName string = "model_loaded_size_B.txt"
+	modelLoadedSizeFileName string = "model_loaded_size_B.txt"
+	modelTypeMediapipe      string = "mediapipe_graph"
 )
