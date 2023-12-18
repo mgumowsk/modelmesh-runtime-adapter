@@ -125,7 +125,7 @@ func TestHappyPathLoadAndUnload(t *testing.T) {
 		t.Errorf("LoadModel call failed: %v", err)
 	}
 
-	if err := checkEntryExistsInModelConfig(testOpenvinoModelId, testOpenvinoModelPath); err != nil {
+	if err := checkEntryExistsInOVMSConfig(testOpenvinoModelId, testOpenvinoModelPath); err != nil {
 		t.Error(err)
 	}
 

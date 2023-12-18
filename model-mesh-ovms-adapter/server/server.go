@@ -16,10 +16,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-"strconv"
-"strings"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -90,32 +91,33 @@ func NewOvmsAdapterServer(runtimePort int, config *AdapterConfiguration, log log
 		// puller is configured from its own env vars
 		s.Puller = puller.NewPuller(log)
 	}
-
 	log.Info("OVMS Runtime started")
-
 	return s
 }
 
-// TODO:
-// what if there is more than1 version?
-// what if this is mediapipe
-func (s *OvmsAdapterServer) getModelSizeFromFile(modelPath string, log logr.Logger) uint64 {
-	modelSizeFilePath := filepath.Join(modelPath,"1", modelLoadedSizeFileName)
-    modelSizeFileContent, err := os.ReadFile(modelSizeFilePath)
-    if err != nil {
-        log.Info("Could not read file", modelLoadedSizeFileName, modelSizeFilePath)
-        return 0
-    }
-    stringUntrimmed := string(modelSizeFileContent)
-    str := strings.Trim(stringUntrimmed," \n\r")
-    modelSizeB, err := strconv.ParseUint(str, 10, 0)
-    if err != nil {
-		log.Info("Could not read size from:", modelLoadedSizeFileName, modelSizeFilePath)
-	return 0
-    }
-log.Info("Read model loaded size", "model loaded size [B]", modelSizeB)
-
+func (s *OvmsAdapterServer) getServableLoadedSize(servableLoadedSizeFilePath string, log logr.Logger) uint64 {
+	modelSizeFileContent, err := os.ReadFile(servableLoadedSizeFilePath)
+	if err != nil {
+		log.Info("Could not read file", modelLoadedSizeFileName, servableLoadedSizeFilePath)
+		return 0
+	}
+	stringUntrimmed := string(modelSizeFileContent)
+	str := strings.Trim(stringUntrimmed, " \n\r")
+	modelSizeB, err := strconv.ParseUint(str, 10, 0)
+	if err != nil {
+		log.Info("Could not read size from:", modelLoadedSizeFileName, servableLoadedSizeFilePath)
+		return 0
+	}
+	log.Info("Read model loaded size", "model loaded size [B]", modelSizeB)
 	return modelSizeB
+}
+
+func largestNumberInPath(path string) string {
+	files, err1 := ioutil.ReadDir(path)
+	if err1 != nil {
+		return ""
+	}
+	return largestNumberDir(files)
 }
 
 func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelRequest) (*mmesh.LoadModelResponse, error) {
@@ -157,16 +159,24 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 		log.Error(loadErr, "OVMS failed to load model")
 		return nil, status.Errorf(status.Code(loadErr), "Failed to load model due to error: %s", loadErr)
 	}
-  readModelLoadedSize := s.getModelSizeFromFile(adaptedModelPath, log);
+	var readServableLoadedSize uint64
+	if (modelType == "mediapipe_graph") {
+		modelSizeFilePath := filepath.Join(adaptedModelPath, modelLoadedSizeFileName)
+		readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log);
+	} else {
+		versionNumberString := largestNumberInPath(adaptedModelPath)
+		modelSizeFilePath := filepath.Join(adaptedModelPath, versionNumberString, modelLoadedSizeFileName)
+    readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log);
+  }
 
- if readModelLoadedSize == 0 {
-	readModelLoadedSize = util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
+ if readServableLoadedSize == 0 {
+	readServableLoadedSize = util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
 }
 
-	log.Info("OVMS model loaded", "sizeInBytes", readModelLoadedSize)
+	log.Info("OVMS model loaded", "sizeInBytes", readServableLoadedSize)
 
 	return &mmesh.LoadModelResponse{
-		SizeInBytes:    readModelLoadedSize,
+		SizeInBytes:    readServableLoadedSize,
 		MaxConcurrency: uint32(s.AdapterConfig.LimitModelConcurrency),
 	}, nil
 }
