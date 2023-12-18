@@ -160,18 +160,18 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 		return nil, status.Errorf(status.Code(loadErr), "Failed to load model due to error: %s", loadErr)
 	}
 	var readServableLoadedSize uint64
-	if (modelType == "mediapipe_graph") {
+	if modelType == "mediapipe_graph" {
 		modelSizeFilePath := filepath.Join(adaptedModelPath, modelLoadedSizeFileName)
-		readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log);
+		readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log)
 	} else {
 		versionNumberString := largestNumberInPath(adaptedModelPath)
 		modelSizeFilePath := filepath.Join(adaptedModelPath, versionNumberString, modelLoadedSizeFileName)
-    readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log);
-  }
+		readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log)
+	}
 
- if readServableLoadedSize == 0 {
-	readServableLoadedSize = util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
-}
+	if readServableLoadedSize == 0 {
+		readServableLoadedSize = util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
+	}
 
 	log.Info("OVMS model loaded", "sizeInBytes", readServableLoadedSize)
 

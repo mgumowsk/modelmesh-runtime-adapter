@@ -118,13 +118,13 @@ func createOvmsModelRepositoryFromPath(modelPath, versionNumber, schemaPath, mod
 	return nil
 }
 
-
 func IsDirOrSymlink(fileInfo os.FileInfo) bool {
-	if (fileInfo.IsDir()) {
+	if fileInfo.IsDir() {
 		return true
 	}
-	return fileInfo.Mode() & os.ModeSymlink != 0
+	return fileInfo.Mode()&os.ModeSymlink != 0
 }
+
 // Returns the largest positive int dir as long as all fileInfo dirs are integers (files are ignored).
 // If fileInfos is empty or contains any any non-integer dirs, this will return the empty string.
 func largestNumberDir(fileInfos []os.FileInfo) string {
