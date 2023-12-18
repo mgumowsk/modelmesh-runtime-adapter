@@ -24,6 +24,10 @@ import (
 	"testing"
 )
 
+const (
+	notUsedModelType string = "model_type"
+)
+
 // Make it easy to mock OVMS HTTP responses
 type MockOVMS struct {
 	server             *httptest.Server
@@ -117,11 +121,11 @@ func TestHappyPathLoadAndUnload(t *testing.T) {
 	}, http.StatusOK)
 
 	ctx := context.Background()
-	if err := mm.LoadModel(ctx, filepath.Join(testdataDir, "models", testOpenvinoModelId), testOpenvinoModelId); err != nil {
+	if err := mm.LoadModel(ctx, filepath.Join(testdataDir, "models", testOpenvinoModelId), testOpenvinoModelId, notUsedModelType); err != nil {
 		t.Errorf("LoadModel call failed: %v", err)
 	}
 
-	if err := checkEntryExistsInModelConfig(testOpenvinoModelId, testOpenvinoModelPath); err != nil {
+	if err := checkEntryExistsInOVMSConfig(testOpenvinoModelId, testOpenvinoModelPath); err != nil {
 		t.Error(err)
 	}
 
@@ -160,7 +164,7 @@ func TestLoadFailure(t *testing.T) {
 
 	ctx := context.Background()
 
-	err := mm.LoadModel(ctx, filepath.Join(testdataDir, "models", testOpenvinoModelId), testOpenvinoModelId)
+	err := mm.LoadModel(ctx, filepath.Join(testdataDir, "models", testOpenvinoModelId), testOpenvinoModelId, notUsedModelType)
 
 	if err == nil {
 		t.Errorf("Model should have failed to load")

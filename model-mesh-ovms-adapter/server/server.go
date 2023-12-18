@@ -16,8 +16,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -88,10 +91,33 @@ func NewOvmsAdapterServer(runtimePort int, config *AdapterConfiguration, log log
 		// puller is configured from its own env vars
 		s.Puller = puller.NewPuller(log)
 	}
-
 	log.Info("OVMS Runtime started")
-
 	return s
+}
+
+func (s *OvmsAdapterServer) getServableLoadedSize(servableLoadedSizeFilePath string, log logr.Logger) uint64 {
+	modelSizeFileContent, err := os.ReadFile(servableLoadedSizeFilePath)
+	if err != nil {
+		log.Info("Could not read file", modelLoadedSizeFileName, servableLoadedSizeFilePath)
+		return 0
+	}
+	stringUntrimmed := string(modelSizeFileContent)
+	str := strings.Trim(stringUntrimmed, " \n\r")
+	modelSizeB, err := strconv.ParseUint(str, 10, 0)
+	if err != nil {
+		log.Info("Could not read size from:", modelLoadedSizeFileName, servableLoadedSizeFilePath)
+		return 0
+	}
+	log.Info("Read model loaded size", "model loaded size [B]", modelSizeB)
+	return modelSizeB
+}
+
+func largestNumberInPath(path string) string {
+	files, err1 := ioutil.ReadDir(path)
+	if err1 != nil {
+		return ""
+	}
+	return largestNumberDir(files)
 }
 
 func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelRequest) (*mmesh.LoadModelResponse, error) {
@@ -133,13 +159,24 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 		log.Error(loadErr, "OVMS failed to load model")
 		return nil, status.Errorf(status.Code(loadErr), "Failed to load model due to error: %s", loadErr)
 	}
+	var readServableLoadedSize uint64
+	if modelType == "mediapipe_graph" {
+		modelSizeFilePath := filepath.Join(adaptedModelPath, modelLoadedSizeFileName)
+		readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log)
+	} else {
+		versionNumberString := largestNumberInPath(adaptedModelPath)
+		modelSizeFilePath := filepath.Join(adaptedModelPath, versionNumberString, modelLoadedSizeFileName)
+		readServableLoadedSize = s.getServableLoadedSize(modelSizeFilePath, log)
+	}
 
-	size := util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
+	if readServableLoadedSize == 0 {
+		readServableLoadedSize = util.CalcMemCapacity(req.ModelKey, s.AdapterConfig.DefaultModelSizeInBytes, s.AdapterConfig.ModelSizeMultiplier, log)
+	}
 
-	log.Info("OVMS model loaded", "sizeInBytes", size)
+	log.Info("OVMS model loaded", "sizeInBytes", readServableLoadedSize)
 
 	return &mmesh.LoadModelResponse{
-		SizeInBytes:    size,
+		SizeInBytes:    readServableLoadedSize,
 		MaxConcurrency: uint32(s.AdapterConfig.LimitModelConcurrency),
 	}, nil
 }

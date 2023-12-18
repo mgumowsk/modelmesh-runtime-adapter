@@ -427,7 +427,7 @@ func (mm *OvmsModelManager) gatherLoadRequests() map[string]*request {
 					delete(requestMap, req.modelId)
 				}
 
-				if req.modelType == "mediapipe_graph" {
+				if req.modelType == modelTypeMediapipe {
 					delete(mm.loadedMediapipeGraphsMap, req.modelId)
 				} else {
 					delete(mm.loadedModelsMap, req.modelId)
@@ -455,7 +455,7 @@ func (mm *OvmsModelManager) gatherLoadRequests() map[string]*request {
 				}
 
 				requestMap[req.modelId] = req
-				if req.modelType == "mediapipe_graph" {
+				if req.modelType == modelTypeMediapipe {
 					graphPath, _ := util.SecureJoin(req.basePath, "graph.pbtxt")
 					subconfigPath, _ := util.SecureJoin(req.basePath, "config.json")
 					mm.loadedMediapipeGraphsMap[req.modelId] = OvmsMediapipeConfigListEntry{
