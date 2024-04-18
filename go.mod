@@ -2,6 +2,8 @@ module github.com/kserve/modelmesh-runtime-adapter
 
 go 1.21
 
+replace github.com/IBM/ibm-cos-sdk-go => github.com/mateusz-ciesielski/ibm-cos-sdk-go v0.0.0-20230906081345-abedcc7f4e2b
+
 require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
