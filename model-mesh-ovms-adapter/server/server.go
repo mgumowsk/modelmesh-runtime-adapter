@@ -146,6 +146,7 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 }
 
 func (s *OvmsAdapterServer) UnloadModel(ctx context.Context, req *mmesh.UnloadModelRequest) (*mmesh.UnloadModelResponse, error) {
+	s.Log.Info("Unloading model", "model_id", req.ModelId)
 	if unloadErr := s.ModelManager.UnloadModel(ctx, req.ModelId); unloadErr != nil {
 		// check if we got a gRPC error as a response that indicates that OVMS
 		// does not have the model registered. In that case we still want to proceed
