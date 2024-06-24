@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -121,13 +122,14 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 		return nil, status.Errorf(status.Code(err), "Failed to load Model due to adapter error: %s", err)
 	}
 
-	adaptedModelPath, err := util.SecureJoin(s.AdapterConfig.RootModelDir, req.ModelId)
+	adaptedModelPath := filepath.Join(s.AdapterConfig.RootModelDir, req.ModelId)
+	log.Info("Sum paths", "RootModelDir", s.AdapterConfig.RootModelDir, "ModelId", req.ModelId, "adapterModelPath", adaptedModelPath)
 	if err != nil {
 		log.Error(err, "Unable to securely join", "rootModelDir", rootModelDir, "modelID", req.ModelId)
 		return nil, err
 	}
 
-	loadErr := s.ModelManager.LoadModel(ctx, adaptedModelPath, req.ModelId)
+	loadErr := s.ModelManager.LoadModel(ctx, adaptedModelPath, req.ModelId, modelType)
 	if loadErr != nil {
 		log.Error(loadErr, "OVMS failed to load model")
 		return nil, status.Errorf(status.Code(loadErr), "Failed to load model due to error: %s", loadErr)
@@ -144,6 +146,7 @@ func (s *OvmsAdapterServer) LoadModel(ctx context.Context, req *mmesh.LoadModelR
 }
 
 func (s *OvmsAdapterServer) UnloadModel(ctx context.Context, req *mmesh.UnloadModelRequest) (*mmesh.UnloadModelResponse, error) {
+	s.Log.Info("Unloading model", "model_id", req.ModelId)
 	if unloadErr := s.ModelManager.UnloadModel(ctx, req.ModelId); unloadErr != nil {
 		// check if we got a gRPC error as a response that indicates that OVMS
 		// does not have the model registered. In that case we still want to proceed
@@ -156,18 +159,14 @@ func (s *OvmsAdapterServer) UnloadModel(ctx context.Context, req *mmesh.UnloadMo
 		}
 	}
 
-	ovmsModelIDDir, err := util.SecureJoin(s.AdapterConfig.RootModelDir, req.ModelId)
-	if err != nil {
-		s.Log.Error(err, "Unable to securely join", "rootModelDir", s.AdapterConfig.RootModelDir, "modelId", req.ModelId)
-		return nil, err
-	}
-	if err = os.RemoveAll(ovmsModelIDDir); err != nil {
+	ovmsModelIDDir := filepath.Join(s.AdapterConfig.RootModelDir, req.ModelId)
+	if err := os.RemoveAll(ovmsModelIDDir); err != nil {
 		return nil, status.Errorf(status.Code(err), "Error while deleting the %s dir: %v", ovmsModelIDDir, err)
 	}
 
 	if s.AdapterConfig.UseEmbeddedPuller {
 		// delete files from puller cache
-		err = s.Puller.CleanupModel(req.ModelId)
+		err := s.Puller.CleanupModel(req.ModelId)
 		if err != nil {
 			return nil, status.Errorf(status.Code(err), "Failed to delete model files from puller cache: %s", err)
 		}

@@ -33,7 +33,7 @@ func main() {
 		log.Error(err, "Error reading configuration")
 		os.Exit(1)
 	}
-	log.Info("Starting OpenVINO Adapter Server", "adapter_config", adapterConfig)
+	log.Info("Starting Geti OpenVINO Adapter Server", "adapter_config", adapterConfig)
 
 	server := server.NewOvmsAdapterServer(adapterConfig.OvmsPort, adapterConfig, log)
 
