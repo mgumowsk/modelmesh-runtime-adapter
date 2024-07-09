@@ -16,7 +16,7 @@
 # Stage 1: Create the developer image for the BUILDPLATFORM only
 ###############################################################################
 ARG GOLANG_VERSION=1.21
-FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi8/go-toolset:$GOLANG_VERSION AS develop
+FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/go-toolset:$GOLANG_VERSION AS develop
 
 ARG PROTOC_VERSION=21.5
 
@@ -28,12 +28,13 @@ ENV HOME=/root
 RUN --mount=type=cache,target=/root/.cache/dnf:rw \
     dnf install --setopt=cachedir=/root/.cache/dnf -y --nodocs \
         nodejs \
-        python38 \
+        python3 \
     && ln -sf /usr/bin/python3 /usr/bin/python \
     && ln -sf /usr/bin/pip3 /usr/bin/pip \
     && true
 
 # Install pre-commit
+RUN curl -L https://bootstrap.pypa.io/get-pip.py | python3
 ENV PIP_CACHE_DIR=/root/.cache/pip
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install pre-commit
@@ -137,7 +138,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 ###############################################################################
 # Stage 3: Copy build assets to create the smallest final runtime image
 ###############################################################################
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as runtime
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest as runtime
 
 ARG USER=2000
 
@@ -146,11 +147,11 @@ USER root
 # install python to convert keras to tf
 # NOTE: tensorflow not supported on PowerPC (ppc64le) or System Z (s390x) https://github.com/tensorflow/tensorflow/issues/46181
 RUN --mount=type=cache,target=/root/.cache/microdnf:rw \
-    microdnf install --setopt=cachedir=/root/.cache/microdnf \
+    microdnf -y install --setopt=cachedir=/root/.cache/microdnf \
        gcc \
        gcc-c++ \
-       python38-devel \
-       python38 \
+       python3-devel \
+       python3 \
     && ln -sf /usr/bin/python3 /usr/bin/python \
     && ln -sf /usr/bin/pip3 /usr/bin/pip \
     && true
